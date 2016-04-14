@@ -4,6 +4,7 @@ import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 import static org.hamcrest.Matchers.*;
 
+import org.junit.Before;
 import org.junit.Test;
 
 import pl.com.bottega.ecommerce.sales.domain.productscatalog.ProductData;
@@ -13,18 +14,25 @@ public class IssuanceTest {
 
 	private BookKeeper bookKeeper = new BookKeeper(new InvoiceFactory());
 	
+	private InvoiceRequest invoiceRequest;
+	private ProductData productData = new ProductData(null, null, null, null, null);
+	private Money money = new Money(0);
+	private Tax tax = new Tax(money, null);
+	
+	private TaxPolicy mockTaxPolicy;
+	
+	@Before
+	public void setUp() {
+		invoiceRequest = new InvoiceRequest(null);
+		
+		mockTaxPolicy = mock(TaxPolicy.class);
+		when(mockTaxPolicy.calculateTax(null, money)).thenReturn(tax);
+	}
+	
 	@Test
 	public void shouldReturnSingleItemInvoiceForSingleItemRequest() {
 		
-		InvoiceRequest invoiceRequest = new InvoiceRequest(null);
-		ProductData productData = new ProductData(null, null, null, null, null);
-		Money totalCost = new Money(0);
-		invoiceRequest.add(new RequestItem(productData, 0, totalCost));
-		
-		TaxPolicy mockTaxPolicy = mock(TaxPolicy.class);
-		Money taxMoney = new Money(0);
-		Tax tax = new Tax(taxMoney, null);
-		when(mockTaxPolicy.calculateTax(null, totalCost)).thenReturn(tax);
+		invoiceRequest.add(new RequestItem(productData, 0, money));
 		
 		Invoice invoice = bookKeeper.issuance(invoiceRequest, mockTaxPolicy);
 		
@@ -34,21 +42,29 @@ public class IssuanceTest {
 	@Test
 	public void shouldCallTwiceCalculateTaxMethodForTwoItemsRequest() {
 		
-		InvoiceRequest invoiceRequest = new InvoiceRequest(null);
-		ProductData productData = new ProductData(null, null, null, null, null);
-		Money totalCost = new Money(0);
-		RequestItem item = new RequestItem(productData, 0, totalCost);
+		RequestItem item = new RequestItem(productData, 0, money);
 		invoiceRequest.add(item);
 		invoiceRequest.add(item);
-		
-		TaxPolicy mockTaxPolicy = mock(TaxPolicy.class);
-		Money taxMoney = new Money(0);
-		Tax tax = new Tax(taxMoney, null);
-		when(mockTaxPolicy.calculateTax(null, totalCost)).thenReturn(tax);
 		
 		bookKeeper.issuance(invoiceRequest, mockTaxPolicy);
 		
-		verify(mockTaxPolicy, times(2)).calculateTax(null, totalCost);
+		verify(mockTaxPolicy, times(2)).calculateTax(null, money);
+	}
+	
+	@Test
+	public void shouldReturnEmptyInvoiceForEmptyRequest() {
+		
+		Invoice invoice = bookKeeper.issuance(invoiceRequest, mockTaxPolicy);
+		
+		assertThat(invoice.getItems().size(), equalTo(0));
+	}
+	
+	@Test
+	public void shouldNoTCallCalculateTaxMethodForEmptyRequest() {
+		
+		bookKeeper.issuance(invoiceRequest, mockTaxPolicy);
+		
+		verify(mockTaxPolicy, never()).calculateTax(null, null);
 	}
 
 }
