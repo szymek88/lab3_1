@@ -2,6 +2,7 @@ package pl.com.bottega.ecommerce.sales.domain.invoicing;
 
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
+import static pl.com.bottega.ecommerce.sales.domain.invoicing.RequestItemBuilder.requestItem;
 import static org.hamcrest.Matchers.*;
 
 import org.junit.Before;
@@ -15,7 +16,6 @@ public class IssuanceTest {
 	private BookKeeper bookKeeper = new BookKeeper(new InvoiceFactory());
 	
 	private InvoiceRequest invoiceRequest;
-	private ProductData productData = new ProductData(null, null, null, null, null);
 	private Money money = new Money(0);
 	private Tax tax = new Tax(money, null);
 	
@@ -32,7 +32,8 @@ public class IssuanceTest {
 	@Test
 	public void shouldReturnSingleItemInvoiceForSingleItemRequest() {
 		
-		invoiceRequest.add(new RequestItem(productData, 0, money));
+		RequestItem item = a(requestItem().ofQuantity(1));
+		invoiceRequest.add(item);
 		
 		Invoice invoice = bookKeeper.issuance(invoiceRequest, mockTaxPolicy);
 		
@@ -42,9 +43,12 @@ public class IssuanceTest {
 	@Test
 	public void shouldCallTwiceCalculateTaxMethodForTwoItemsRequest() {
 		
-		RequestItem item = new RequestItem(productData, 0, money);
+		Money money = new Money(1000);
+		RequestItem item = a(requestItem().ofQuantity(3).ofTotalCost(money));
 		invoiceRequest.add(item);
 		invoiceRequest.add(item);
+		
+		when(mockTaxPolicy.calculateTax(null, money)).thenReturn(tax);
 		
 		bookKeeper.issuance(invoiceRequest, mockTaxPolicy);
 		
@@ -66,5 +70,9 @@ public class IssuanceTest {
 		
 		verify(mockTaxPolicy, never()).calculateTax(null, null);
 	}
+	
+	private RequestItem a(RequestItemBuilder builder) {
+		return builder.build();
+}
 
 }
